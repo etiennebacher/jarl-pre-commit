@@ -1,3 +1,17 @@
+# This workflow is triggered by a new release in Jarl.
+# It does two things:
+# 1. update the `VERSION` in `jarl-check.sh`. This corresponds to the version of
+#    Jarl to download.
+# 2. make a new tag corresponding to `VERSION`.
+#
+# Example:
+#   - Jarl has releases 0.4.0, 0.5.0, 0.6.0
+#   - jarl-pre-commit has the same releases
+#   - the user passes "rev: 0.5.0"
+#
+# In this case, pre-commit clones the tag 0.5.0 and runs `jarl-check.sh`. In this
+# tag, the script fetches Jarl 0.5.0 and stores it in the jarl-pre-commit cache.
+
 name: Update jarl version
 
 on:
