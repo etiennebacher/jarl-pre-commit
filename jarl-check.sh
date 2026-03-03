@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eu
 
 VERSION="0.4.0"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/jarl-pre-commit"
