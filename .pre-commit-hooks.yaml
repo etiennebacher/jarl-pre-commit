@@ -1,0 +1,10 @@
+- id: jarl-check
+  name: jarl check
+  description: "Run 'jarl check' to lint R code"
+  entry: jarl check
+  language: r
+  files: \.(R|r|Rmd|rmd|qmd)$
+  args: [.]
+  require_serial: true
+  additional_dependencies: []
+  minimum_pre_commit_version: "2.9.2"
