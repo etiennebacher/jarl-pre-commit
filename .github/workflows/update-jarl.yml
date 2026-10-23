@@ -1,57 +1,95 @@
-# This workflow is triggered by a new release in Jarl.
-# It does two things:
-# 1. update the `VERSION` in `setup.py`. This corresponds to the version
-#    of Jarl to download during hook installation.
-# 2. make a new tag corresponding to `VERSION`.
+# This workflow makes a new release of jarl-pre-commit. It is triggered:
+# - by Jarl once a new release is published on PyPI. In this case, it updates
+#   the `jarl-linter` pin in `.pre-commit-hooks.yaml`, which is the default
+#   version of Jarl installed from PyPI with the hook.
+# - manually, to release fixes to the hook itself.
+#
+# Releases of jarl-pre-commit don't match releases of Jarl. By default, the
+# patch version of the latest tag is incremented. The "Unreleased" section of
+# `CHANGELOG.md` becomes the section of the new release and its notes.
 #
 # Example:
-#   - Jarl has releases 0.4.0, 0.5.0, 0.6.0
-#   - jarl-pre-commit has the same releases
-#   - the user passes "rev: 0.5.0"
+#   - the latest tag is 1.0.2 and pins jarl-linter==0.7.1
+#   - Jarl 0.8.0 is published on PyPI
+#   - this workflow tags 1.0.3, which pins jarl-linter==0.8.0
 #
-# In this case, pre-commit clones the tag 0.5.0 and runs `pip install .`.
-# The custom build step in setup.py fetches Jarl 0.5.0 and bundles it into
-# the hook's Python environment, which pre-commit then caches.
+# Users passing "rev: 1.0.3" get `pip install . jarl-linter==0.8.0`, unless
+# they override `additional_dependencies`.
 
-name: Update jarl version
+name: Release
 
 on:
   repository_dispatch:
     types: [jarl-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (default: increment the patch version of the latest tag)"
+        required: false
+        type: string
 
 permissions:
   contents: write
 
 jobs:
-  update:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-      - name: Update version in setup.py
+      - name: Get version to release
         env:
-          NEW_VERSION: ${{ github.event.client_payload.version }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          sed -i "s/^VERSION = \".*\"/VERSION = \"${NEW_VERSION}\"/" setup.py
-          echo "Updated to jarl ${NEW_VERSION}"
-          grep '^VERSION' setup.py
+          if [ -n "${INPUT_VERSION}" ]; then
+            TAG="${INPUT_VERSION}"
+          else
+            LATEST=$(git tag --sort=-v:refname | head -1)
+            TAG="${LATEST%.*}.$(( ${LATEST##*.} + 1 ))"
+          fi
+          echo "Releasing ${TAG}"
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+
+      - name: Add "Unreleased" section to CHANGELOG.md
+        run: |
+          if ! grep -q '^## Unreleased$' CHANGELOG.md; then
+            sed -i '0,/^# Changelog$/s//# Changelog\n\n## Unreleased/' CHANGELOG.md
+          fi
+          grep -q '^## Unreleased$' CHANGELOG.md || { echo 'CHANGELOG.md must start with "# Changelog"'; exit 1; }
+
+      - name: Update version in .pre-commit-hooks.yaml
+        if: ${{ github.event_name == 'repository_dispatch' }}
+        env:
+          JARL_VERSION: ${{ github.event.client_payload.version }}
+        run: |
+          if grep -q "jarl-linter==${JARL_VERSION}\"" .pre-commit-hooks.yaml; then
+            echo "jarl-linter is already pinned to ${JARL_VERSION}"
+            exit 1
+          fi
+          sed -i "s/jarl-linter==[^\"]*/jarl-linter==${JARL_VERSION}/" .pre-commit-hooks.yaml
+          echo "Updated to jarl ${JARL_VERSION}"
+          grep 'jarl-linter' .pre-commit-hooks.yaml
+          sed -i "s|^## Unreleased$|## Unreleased\n\n- Update Jarl to [${JARL_VERSION}](https://github.com/etiennebacher/jarl/releases/tag/${JARL_VERSION}).|" CHANGELOG.md
+
+      - name: Update CHANGELOG.md
+        run: |
+          sed -i "s/^## Unreleased$/## ${TAG}/" CHANGELOG.md
+          awk -v section="## ${TAG}" '$0 == section { f = 1; next } /^## / { f = 0 } f' CHANGELOG.md > notes.md
+          cat notes.md
 
       - name: Commit, tag, and push
-        env:
-          NEW_VERSION: ${{ github.event.client_payload.version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add setup.py
-          git commit -m "Update jarl to ${NEW_VERSION}"
-          git tag "${NEW_VERSION}"
+          git add .pre-commit-hooks.yaml CHANGELOG.md
+          git commit -m "Release ${TAG}"
+          git tag "${TAG}"
           git push origin main --tags
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ github.event.client_payload.version }}
         run: |
-          gh release create "${NEW_VERSION}" \
-            --title "jarl ${NEW_VERSION}" \
-            --notes "Update jarl to [${NEW_VERSION}](https://github.com/etiennebacher/jarl/releases/tag/${NEW_VERSION})"
+          gh release create "${TAG}" --title "${TAG}" --notes-file notes.md

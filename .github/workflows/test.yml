@@ -36,3 +36,53 @@ jobs:
           echo 'x <- 1' > test.R
           uvx ${{ matrix.tool }} try-repo . jarl-check --files test.R | tee output.txt
           grep -q Passed output.txt
+
+      # Check that the default Jarl version is the one pinned in
+      # `.pre-commit-hooks.yaml`, and that users can override it.
+      - name: Check with older Jarl version (pre-commit)
+        run: |
+          default=$(grep -o 'jarl-linter==[0-9.]*' .pre-commit-hooks.yaml | cut -d= -f3)
+          mkdir project && cd project && git init -q
+          for version in "$default" 0.6.0; do
+            deps=""
+            if [ "$version" != "$default" ]; then
+              deps="additional_dependencies: [\"jarl-linter==$version\"]"
+            fi
+            cat > .pre-commit-config.yaml <<EOF
+          repos:
+          -   repo: $GITHUB_WORKSPACE
+              rev: $GITHUB_SHA
+              hooks:
+                - id: jarl-check
+                  entry: jarl --version
+                  pass_filenames: false
+                  always_run: true
+                  $deps
+          EOF
+            uvx ${{ matrix.tool }} run --all-files --verbose | tee output.txt
+            grep -q "jarl $version$" output.txt
+          done
+
+      # Same with prek's own config format. The repo path is a literal string
+      # since it contains backslashes on Windows.
+      - name: Check with older Jarl version (prek)
+        if: matrix.tool == 'prek'
+        run: |
+          default=$(grep -o 'jarl-linter==[0-9.]*' .pre-commit-hooks.yaml | cut -d= -f3)
+          mkdir project-toml && cd project-toml && git init -q
+          for version in "$default" 0.6.0; do
+            deps=""
+            if [ "$version" != "$default" ]; then
+              deps=", additional_dependencies = [\"jarl-linter==$version\"]"
+            fi
+            cat > prek.toml <<EOF
+          [[repos]]
+          repo = '$GITHUB_WORKSPACE'
+          rev = "$GITHUB_SHA"
+          hooks = [
+            { id = "jarl-check", entry = "jarl --version", pass_filenames = false, always_run = true$deps },
+          ]
+          EOF
+            uvx prek run --all-files --verbose | tee output.txt
+            grep -q "jarl $version$" output.txt
+          done
