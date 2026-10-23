@@ -39,7 +39,7 @@ jobs:
 
       # Check that the default Jarl version is the one pinned in
       # `.pre-commit-hooks.yaml`, and that users can override it.
-      - name: Check Jarl version
+      - name: Check with older Jarl version (pre-commit)
         run: |
           default=$(grep -o 'jarl-linter==[0-9.]*' .pre-commit-hooks.yaml | cut -d= -f3)
           mkdir project && cd project && git init -q
@@ -65,7 +65,7 @@ jobs:
 
       # Same with prek's own config format. The repo path is a literal string
       # since it contains backslashes on Windows.
-      - name: Check Jarl version (prek.toml)
+      - name: Check with older Jarl version (prek)
         if: matrix.tool == 'prek'
         run: |
           default=$(grep -o 'jarl-linter==[0-9.]*' .pre-commit-hooks.yaml | cut -d= -f3)
