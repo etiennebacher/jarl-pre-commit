@@ -57,7 +57,7 @@ Each release of `jarl-pre-commit` installs by default the latest version of Jarl
 
 > [!NOTE]
 > Before `jarl-pre-commit` 1.0.0, the version tags of `jarl-pre-commit` were matching the release 
-> version of Jarl, which made it impossible to have integrate fixes for `jarl-pre-commit` while using
+> version of Jarl, which made it impossible to integrate fixes for `jarl-pre-commit` while using
 > older versions of Jarl. 
 
 To choose the version of Jarl to use, pass it in `additional_dependencies`:
