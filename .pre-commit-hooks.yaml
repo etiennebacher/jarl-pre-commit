@@ -1,8 +1,9 @@
 - id: jarl-check
   name: jarl check
   description: "Run 'jarl check' to lint R code"
-  entry: jarl-check
+  entry: jarl check
   language: python
+  additional_dependencies: ["jarl-linter==0.7.1"]
   files: \.(R|r|Rmd|rmd|qmd)$
   require_serial: true
   minimum_pre_commit_version: "2.9.2"
