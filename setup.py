@@ -63,7 +63,15 @@ def _download_jarl():
             with tarfile.open(archive) as t:
                 t.extractall(tmpdir, filter="data")
 
-        src = os.path.join(tmpdir, f"jarl-{target}", binary_name)
+        # The tar.gz archives put the binary in a `jarl-{target}/` folder,
+        # while the Windows zip has it at the top level.
+        candidates = [
+            os.path.join(tmpdir, f"jarl-{target}", binary_name),
+            os.path.join(tmpdir, binary_name),
+        ]
+        src = next((p for p in candidates if os.path.isfile(p)), None)
+        if src is None:
+            raise RuntimeError(f"Could not find {binary_name} in {url}")
         shutil.copy2(src, dst)
         if platform.system() != "Windows":
             dst.chmod(dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
