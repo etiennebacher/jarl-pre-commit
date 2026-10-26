@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - Releases of `jarl-pre-commit` no longer match releases of Jarl. This made it impossible to
   add fixes related to `jarl-pre-commit` only (e.g. #5) while using older versions of Jarl.
